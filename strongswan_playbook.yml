@@ -1,5 +1,5 @@
 - name: Setup IPSec VPN with strongswan
-  hosts: all
+  hosts: local_gateway
   tasks:
     - name: set_fact | figure out private ip address and interface
       set_fact:
@@ -36,10 +36,19 @@
         dest: /etc/ipsec.secrets
       notify: reload ipsec
 
-    - name: write updown.sh
+    - name: create updown.sh
       template:
         src: updown_sh.j2
         dest: /etc/strongswan.d/updown.sh
+      notify: reload ipsec
+      
+
+    - name: add routes inside the updown.sh
+      lineinfile:
+        dest: /etc/strongswan.d/updown.sh
+        line: "       ip route add {{ item }} dev {{ private_interface }} src {{ private_ip }} table 220"
+        insertafter: "up-client"
+      with_items: "{{ clients_private_ip }}"
       notify: reload ipsec
 
   handlers:
@@ -59,7 +68,7 @@
 #     - name: get hostvars
 #       copy:
 #         content: "{{ hostvars | to_nice_json }}"
-#         dest: "/home/kenneth/myansible/strongswan-one-node/hostvars.json"
+#         dest: "/home/kenneth/myansible/strongswan/hostvars.json"
 #       delegate_to: localhost
     # - name: debug
     #   debug:
