@@ -17,9 +17,7 @@
       set_fact:
         clients_private_ip: "{{ clients_private_ip + [hostvars[item]['private_ip']] }}"
       with_items: "{{ groups['clients'] }}"
-    # - name: debug
-    #   debug:
-    #     var: clients_private_ip
+
     - name: install strongswan
       apt:
         name: strongswan
@@ -71,7 +69,12 @@
         name: ipsec
         state: restarted
 
-
+- name: clients
+  hosts: clients
+  tasks:
+    - name: set
+      shell:
+        cmd: ip route add {{ remote_subnet }} via {{ hostvars['local_gateway']['private_ip'] }} dev {{ private_interface }} src {{ private_ip }}
 
 
 # - name: register hostvars to json file
