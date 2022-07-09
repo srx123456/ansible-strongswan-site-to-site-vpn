@@ -1,5 +1,5 @@
-- name: Setup IPSec VPN with strongswan
-  hosts: local_gateway
+- name: detect private ip and interface on all hosts
+  hosts: all
   tasks:
     - name: set_fact | figure out private ip address and interface
       set_fact:
@@ -9,7 +9,17 @@
         - hostvars[inventory_hostname]['ansible_' + item].ipv4 is defined
         - hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address'] | ipaddr(hostvars[inventory_hostname]['local_subnet'])
       with_items: "{{ ansible_interfaces }}"
-    
+        
+- name: Setup IPSec VPN with strongswan on gateway
+  hosts: local_gateway
+  tasks:
+    - name: set_fact | make a list all clients machines private ip address
+      set_fact:
+        clients_private_ip: "{{ clients_private_ip + [hostvars[item]['private_ip']] }}"
+      with_items: "{{ groups['clients'] }}"
+    # - name: debug
+    #   debug:
+    #     var: clients_private_ip
     - name: install strongswan
       apt:
         name: strongswan
@@ -42,7 +52,6 @@
         dest: /etc/strongswan.d/updown.sh
       notify: reload ipsec
       
-
     - name: add routes inside the updown.sh
       lineinfile:
         dest: /etc/strongswan.d/updown.sh
@@ -61,6 +70,9 @@
       systemd:
         name: ipsec
         state: restarted
+
+
+
 
 # - name: register hostvars to json file
 #   hosts: all
