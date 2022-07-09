@@ -1,17 +1,14 @@
-- name: detect private interface and subnet
+- name: Setup IPSec VPN with strongswan
   hosts: all
   tasks:
-    - name: set_fact | figure out network device of private network
+    - name: set_fact | figure out private ip address and interface
       set_fact:
+        private_ip: "{{ hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address'] }}"
         private_interface: "{{ hostvars[inventory_hostname]['ansible_' + item]['device'] }}"
       when:
         - hostvars[inventory_hostname]['ansible_' + item].ipv4 is defined
-        - hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address']  == hostvars[inventory_hostname]['private_ip']
+        - hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address'] | ipaddr(hostvars[inventory_hostname]['local_subnet'])
       with_items: "{{ ansible_interfaces }}"
-    
-    - name: set_fact | private subnet cidr mask
-      set_fact:
-        private_subnet: "{{ hostvars[inventory_hostname]['ansible_' + private_interface]['ipv4']['network'] }}/{{ (hostvars[inventory_hostname]['ansible_' + private_interface]['ipv4']['address'] + '/' + hostvars[inventory_hostname]['ansible_' + private_interface]['ipv4']['netmask'] ) | ipaddr('prefix') }}"
     
     - name: install strongswan
       apt:
@@ -29,19 +26,30 @@
     
     - name: write ipsec conf
       template:
-        src: ipsec_conf.j2
+        src: strongswan_conf.j2
         dest: /etc/ipsec.conf
       notify: reload ipsec  
     
     - name: write the vpn secrets file
       template:
-        src: ipsec_secrets.j2
+        src: strongswan_secrets.j2
         dest: /etc/ipsec.secrets
+      notify: reload ipsec
+
+    - name: write updown.sh
+      template:
+        src: updown_sh.j2
+        dest: /etc/strongswan.d/updown.sh
       notify: reload ipsec
 
   handlers:
     - name: reload ipsec
-      service:
+      shell:
+        cmd: /usr/sbin/ipsec reload
+      notify: restart ipsec  
+
+    - name: restart ipsec
+      systemd:
         name: ipsec
         state: restarted
 
@@ -51,10 +59,10 @@
 #     - name: get hostvars
 #       copy:
 #         content: "{{ hostvars | to_nice_json }}"
-#         dest: "/home/kenneth/myansible/ipsec/hostvars.json"
+#         dest: "/home/kenneth/myansible/strongswan-one-node/hostvars.json"
 #       delegate_to: localhost
-#     # - name: debug
-#     #   debug:
-#     #     var: hostvars
+    # - name: debug
+    #   debug:
+    #     var: hostvars
 
 #  ip: "{{ (ansible_default_ipv4.address + '/' + ansible_default_ipv4.netmask) | ipaddr('prefix') }}"
