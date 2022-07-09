@@ -1,25 +1,13 @@
 all:
-  children:
-    siteA:
-      children:
-        siteA_gateway:
-          hosts: 
-            xxxxxxxxxx:
-          vars:
-            private_ip: "{{ siteA_gateway_private_ip }}"
-    siteB:
-      children:
-        siteB_gateway:
-          hosts:
-            xxxxxxxxxx:
-          vars:
-            private_ip: "{{ siteB_gateway_private_ip }}"
+  hosts:
+    "xxxxxxxxxxx":
+      ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
   vars:
     ansible_user: root
+    ansible_password: xxxxxxxxxx
     ansible_python_interpreter: "/usr/bin/python3"
-    ansible_ssh_private_key_file: "/home/xxxxxxxxxx/.ssh/id_rsa"
-    siteA_gateway_public_ip: xxxxxxxxxx
-    siteA_gateway_private_ip: xxxxxxxxxx
-    siteB_gateway_public_ip: xxxxxxxxxx
-    siteB_gateway_private_ip: xxxxxxxxxx
-    vpn_psk: "xxxxxxxxxx"
+    local_subnet: xxxxxxxxxx
+    remote_gateway: xxxxxxxxxxx
+    remote_subnet: xxxxxxxx
+    vpn_psk: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    conn_name: A-B

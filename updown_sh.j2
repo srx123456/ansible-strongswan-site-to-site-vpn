@@ -1,0 +1,7 @@
+#!/bin/bash
+ 
+case "${PLUTO_VERB}" in
+    up-client)
+        ip route add 10.114.0.3 dev {{ private_interface }} src {{ private_ip }} table 220
+        ;;
+esac
