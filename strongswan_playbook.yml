@@ -48,6 +48,7 @@
       template:
         src: updown_sh.j2
         dest: /etc/strongswan.d/updown.sh
+        mode: 0754
       notify: reload ipsec
 
   handlers:
