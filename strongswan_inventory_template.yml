@@ -1,13 +1,27 @@
 all:
   hosts:
-    "xxxxxxxxxxx":
-      ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
+    local_gateway:
+      ansible_host: Put_The_Public_IP_Address_Of_Your_Local_Gateway_Server_Here
+      ansible_password: Put_the_local_gateway_server_password
   vars:
-    ansible_user: root
-    ansible_password: xxxxxxxxxx
+    ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
+    ansible_user: root 
     ansible_python_interpreter: "/usr/bin/python3"
-    local_subnet: xxxxxxxxxx
-    remote_gateway: xxxxxxxxxxx
-    remote_subnet: xxxxxxxx
-    vpn_psk: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    conn_name: A-B
+    local_subnet: "Put_the_local_network_with_cidr_netmask_here_by_example 192.168.30.0/24"
+    remote_gateway: Put_The_Public_IP_Address_Of_The_Remote_Gateway_Here
+    remote_subnet: "Put_the_remote_network_with_cidr_netmask_here_by_example 192.168.50.0/24"
+    vpn_psk: "Put_the_strong_vpn_secret_key_here"
+    conn_name: "Put_the_connexion_name_here"
+
+  children:
+    clients:
+      hosts:
+        client1:
+          ansible_host: Put_The_Public_IP_Address_Of_each_Client_Machine_Here
+          ansible_password: Put_The_Password_Of_each_Client_Machine_Here
+        client2:
+          ansible_host: Put_The_Public_IP_Address_Of_each_Client_Machine_Here
+          ansible_password: Put_The_Password_Of_each_Client_Machine_Here
+        client3:
+          ansible_host: Put_The_Public_IP_Address_Of_each_Client_Machine_Here
+          ansible_password: Put_The_Password_Of_each_Client_Machine_Here
