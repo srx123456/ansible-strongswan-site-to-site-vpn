@@ -1,4 +1,0 @@
-clients_route:
-  routes:
-  - to: {{ remote_subnet }}
-    via: {{ hostvars['local_gateway']['private_ip'] }}

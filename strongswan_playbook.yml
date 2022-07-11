@@ -15,7 +15,7 @@
   tasks:
     - name: set_fact | make a list of all clients machine's private ip address
       set_fact:
-        clients_private_ip: "{{ clients_private_ip + [hostvars[item]['private_ip']] }}"
+        clients_private_ip: "{{ clients_private_ip | default([]) + [hostvars[item]['private_ip']] }}"
       with_items: "{{ groups['clients'] }}"
 
     - name: install strongswan
@@ -97,17 +97,3 @@
       cmd: netplan apply
     async: 45
     poll: 0
-
-# - name: register hostvars to json file
-#   hosts: all
-#   tasks:    
-#     - name: get hostvars
-#       copy:
-#         content: "{{ hostvars | to_nice_json }}"
-#         dest: "/home/kenneth/myansible/strongswan/hostvars.json"
-#       delegate_to: localhost
-    # - name: debug
-    #   debug:
-    #     var: hostvars
-
-#  ip: "{{ (ansible_default_ipv4.address + '/' + ansible_default_ipv4.netmask) | ipaddr('prefix') }}"
