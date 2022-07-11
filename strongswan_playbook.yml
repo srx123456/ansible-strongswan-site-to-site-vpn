@@ -72,9 +72,29 @@
 - name: clients
   hosts: clients
   tasks:
-    - name: set
-      shell:
-        cmd: ip route add {{ remote_subnet }} via {{ hostvars['local_gateway']['private_ip'] }} dev {{ private_interface }} src {{ private_ip }}
+    - name: Capturing Existing netplan Configurations files list
+      find:
+        paths: /etc/netplan
+        patterns: "*.yml,*.yaml"
+      register: _netplan_configs
+    - name: get netplan config file path
+      slurp:
+        src: "{{_netplan_configs['files'][0]['path']}}"
+      register: remote_content_encoded
+    - name: get netplan config file content, decode and convert from yaml to json
+      set_fact:
+        netplan_config_file_content: "{{ remote_content_encoded.content | b64decode | from_yaml }}"
+    - name: modify netplan config file content
+      set_fact:
+        netplan_config_file_content: "{{ netplan_config_file_content | default({}) | combine({'network': {'ethernets': {'eth1': {'routes': route_to_add_on_clients }}}}, recursive=true) }}"
+      vars:
+        route_to_add_on_clients: [{"to": "{{remote_subnet}}", "via": "{{ hostvars['local_gateway']['private_ip'] }}"}]
+    - name: get hostvars
+      copy:
+        content: "{{ netplan_config_file_content | to_yaml }}"
+        dest: "/root/netplan_test.yaml"
+    #   shell:
+    #     cmd: ip route add {{ remote_subnet }} via {{ hostvars['local_gateway']['private_ip'] }} dev {{ private_interface }} src {{ private_ip }}
 
 
 # - name: register hostvars to json file
