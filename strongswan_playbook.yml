@@ -13,7 +13,7 @@
 - name: Setup IPSec VPN with strongswan on gateway
   hosts: local_gateway
   tasks:
-    - name: set_fact | make a list all clients machines private ip address
+    - name: set_fact | make a list of all clients machine's private ip address
       set_fact:
         clients_private_ip: "{{ clients_private_ip + [hostvars[item]['private_ip']] }}"
       with_items: "{{ groups['clients'] }}"
@@ -49,14 +49,6 @@
         src: updown_sh.j2
         dest: /etc/strongswan.d/updown.sh
       notify: reload ipsec
-      
-    # - name: add routes inside the updown.sh
-    #   lineinfile:
-    #     dest: /etc/strongswan.d/updown.sh
-    #     line: "       ip route add {{ item }} dev {{ private_interface }} src {{ private_ip }} table 220"
-    #     insertafter: "up-client"
-    #   with_items: "{{ clients_private_ip }}"
-    #   notify: reload ipsec
 
   handlers:
     - name: reload ipsec
@@ -84,18 +76,27 @@
     - name: get netplan config file content, decode and convert from yaml to json
       set_fact:
         netplan_config_file_content: "{{ remote_content_encoded.content | b64decode | from_yaml }}"
-    - name: modify netplan config file content
+    - name: append routes to netplan config file content
       set_fact:
         netplan_config_file_content: "{{ netplan_config_file_content | default({}) | combine({'network': {'ethernets': {private_interface: {'routes': route_to_add_on_clients }}}}, recursive=true) }}"
       vars:
         route_to_add_on_clients: [{"to": "{{remote_subnet}}", "via": "{{ hostvars['local_gateway']['private_ip'] }}"}]
-    - name: get hostvars
+    - name: replace netplan config file
       copy:
         content: "{{ netplan_config_file_content | to_nice_yaml }}"
-        dest: "/root/netplan_test.yaml"
-    #   shell:
-    #     cmd: ip route add {{ remote_subnet }} via {{ hostvars['local_gateway']['private_ip'] }} dev {{ private_interface }} src {{ private_ip }}
-
+        dest: "{{_netplan_configs['files'][0]['path']}}"
+        backup: yes
+        mode: 0644
+        owner: root
+        group: root
+      notify: netplan apply
+  
+  handlers:
+  - name: netplan apply
+    shell:
+      cmd: netplan apply
+    async: 45
+    poll: 0
 
 # - name: register hostvars to json file
 #   hosts: all
