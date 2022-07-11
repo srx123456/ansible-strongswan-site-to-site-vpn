@@ -50,13 +50,13 @@
         dest: /etc/strongswan.d/updown.sh
       notify: reload ipsec
       
-    - name: add routes inside the updown.sh
-      lineinfile:
-        dest: /etc/strongswan.d/updown.sh
-        line: "       ip route add {{ item }} dev {{ private_interface }} src {{ private_ip }} table 220"
-        insertafter: "up-client"
-      with_items: "{{ clients_private_ip }}"
-      notify: reload ipsec
+    # - name: add routes inside the updown.sh
+    #   lineinfile:
+    #     dest: /etc/strongswan.d/updown.sh
+    #     line: "       ip route add {{ item }} dev {{ private_interface }} src {{ private_ip }} table 220"
+    #     insertafter: "up-client"
+    #   with_items: "{{ clients_private_ip }}"
+    #   notify: reload ipsec
 
   handlers:
     - name: reload ipsec
