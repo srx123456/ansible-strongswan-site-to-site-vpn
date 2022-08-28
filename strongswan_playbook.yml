@@ -1,18 +1,23 @@
-- name: detect private interface and subnet
+- name: detect private ip and interface on all hosts
   hosts: all
   tasks:
-    - name: set_fact | figure out network device of private network
+    - name: set_fact | figure out private ip address and interface
       set_fact:
+        private_ip: "{{ hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address'] }}"
         private_interface: "{{ hostvars[inventory_hostname]['ansible_' + item]['device'] }}"
       when:
         - hostvars[inventory_hostname]['ansible_' + item].ipv4 is defined
-        - hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address']  == hostvars[inventory_hostname]['private_ip']
+        - hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address'] | ipaddr(hostvars[inventory_hostname]['local_subnet'])
       with_items: "{{ ansible_interfaces }}"
-    
-    - name: set_fact | private subnet cidr mask
+        
+- name: Setup IPSec VPN with strongswan on gateway
+  hosts: local_gateway
+  tasks:
+    - name: set_fact | make a list of all clients machine's private ip address
       set_fact:
-        private_subnet: "{{ hostvars[inventory_hostname]['ansible_' + private_interface]['ipv4']['network'] }}/{{ (hostvars[inventory_hostname]['ansible_' + private_interface]['ipv4']['address'] + '/' + hostvars[inventory_hostname]['ansible_' + private_interface]['ipv4']['netmask'] ) | ipaddr('prefix') }}"
-    
+        clients_private_ip: "{{ clients_private_ip | default([]) + [hostvars[item]['private_ip']] }}"
+      with_items: "{{ groups['clients'] }}"
+
     - name: install strongswan
       apt:
         name: strongswan
@@ -29,32 +34,67 @@
     
     - name: write ipsec conf
       template:
-        src: ipsec_conf.j2
+        src: strongswan_conf.j2
         dest: /etc/ipsec.conf
       notify: reload ipsec  
     
     - name: write the vpn secrets file
       template:
-        src: ipsec_secrets.j2
+        src: strongswan_secrets.j2
         dest: /etc/ipsec.secrets
+      notify: reload ipsec
+
+    - name: create updown.sh
+      template:
+        src: updown_sh.j2
+        dest: /etc/strongswan.d/updown.sh
+        mode: 0754
       notify: reload ipsec
 
   handlers:
     - name: reload ipsec
-      service:
+      shell:
+        cmd: /usr/sbin/ipsec reload
+      notify: restart ipsec  
+
+    - name: restart ipsec
+      systemd:
         name: ipsec
         state: restarted
 
-# - name: register hostvars to json file
-#   hosts: all
-#   tasks:    
-#     - name: get hostvars
-#       copy:
-#         content: "{{ hostvars | to_nice_json }}"
-#         dest: "/home/kenneth/myansible/ipsec/hostvars.json"
-#       delegate_to: localhost
-#     # - name: debug
-#     #   debug:
-#     #     var: hostvars
-
-#  ip: "{{ (ansible_default_ipv4.address + '/' + ansible_default_ipv4.netmask) | ipaddr('prefix') }}"
+- name: Add routes to remote subnet on clients machines
+  hosts: clients
+  tasks:
+    - name: Capturing Existing netplan Configurations files list
+      find:
+        paths: /etc/netplan
+        patterns: "*.yml,*.yaml"
+      register: _netplan_configs
+    - name: get netplan config file path
+      slurp:
+        src: "{{_netplan_configs['files'][0]['path']}}"
+      register: remote_content_encoded
+    - name: get netplan config file content, decode and convert from yaml to json
+      set_fact:
+        netplan_config_file_content: "{{ remote_content_encoded.content | b64decode | from_yaml }}"
+    - name: append routes to netplan config file content
+      set_fact:
+        netplan_config_file_content: "{{ netplan_config_file_content | default({}) | combine({'network': {'ethernets': {private_interface: {'routes': route_to_add_on_clients }}}}, recursive=true) }}"
+      vars:
+        route_to_add_on_clients: [{"to": "{{remote_subnet}}", "via": "{{ hostvars['local_gateway']['private_ip'] }}"}]
+    - name: replace netplan config file
+      copy:
+        content: "{{ netplan_config_file_content | to_nice_yaml }}"
+        dest: "{{_netplan_configs['files'][0]['path']}}"
+        backup: yes
+        mode: 0644
+        owner: root
+        group: root
+      notify: netplan apply
+  
+  handlers:
+  - name: netplan apply
+    shell:
+      cmd: netplan apply
+    async: 45
+    poll: 0

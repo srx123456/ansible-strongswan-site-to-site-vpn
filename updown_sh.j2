@@ -1,0 +1,9 @@
+#!/bin/bash
+ 
+case "${PLUTO_VERB}" in
+    up-client)
+    {% for item in clients_private_ip %}
+        ip route add {{ item }} dev {{ private_interface }} src {{ private_ip }} table 220
+    {% endfor %}
+        ;;
+esac
