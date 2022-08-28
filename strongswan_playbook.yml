@@ -70,11 +70,11 @@
         paths: /etc/netplan
         patterns: "*.yml,*.yaml"
       register: _netplan_configs
-    - name: get netplan config file path
+    - name: get netplan config content
       slurp:
         src: "{{_netplan_configs['files'][0]['path']}}"
       register: remote_content_encoded
-    - name: get netplan config file content, decode and convert from yaml to json
+    - name: decode netplan config file content and convert from yaml to json
       set_fact:
         netplan_config_file_content: "{{ remote_content_encoded.content | b64decode | from_yaml }}"
     - name: append routes to netplan config file content
